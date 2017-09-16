@@ -20,8 +20,9 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
+import com.turo.pushy.apns.P12Util;
 import org.junit.Test;
 
 import java.io.File;

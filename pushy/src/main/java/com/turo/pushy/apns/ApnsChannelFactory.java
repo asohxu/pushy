@@ -74,7 +74,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
         this.bootstrapTemplate = new Bootstrap();
         this.bootstrapTemplate.group(eventLoopGroup);
-        this.bootstrapTemplate.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrapTemplate.config().group()));
+        this.bootstrapTemplate.channel(ClientSocketChannelClassUtil.getSocketChannelClass(this.bootstrapTemplate.config().group()));
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
 

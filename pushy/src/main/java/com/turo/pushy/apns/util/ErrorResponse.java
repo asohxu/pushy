@@ -20,11 +20,11 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.util;
 
 import java.util.Date;
 
-class ErrorResponse {
+public class ErrorResponse {
     private final String reason;
     private final Date timestamp;
 

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
 import io.netty.channel.nio.NioEventLoopGroup;
 import org.junit.Before;

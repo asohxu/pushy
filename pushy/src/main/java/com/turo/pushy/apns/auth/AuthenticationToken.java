@@ -20,14 +20,12 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.auth;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
-import com.turo.pushy.apns.auth.ApnsKey;
-import com.turo.pushy.apns.auth.ApnsSigningKey;
-import com.turo.pushy.apns.auth.ApnsVerificationKey;
+import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import org.apache.commons.codec.binary.Base64;
 
 import java.nio.charset.StandardCharsets;
@@ -38,7 +36,7 @@ import java.security.SignatureException;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
-class AuthenticationToken {
+public class AuthenticationToken {
 
     private static class AuthenticationTokenHeader {
         @SerializedName("alg")

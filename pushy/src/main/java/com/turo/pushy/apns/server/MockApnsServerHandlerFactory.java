@@ -20,12 +20,12 @@
  * THE SOFTWARE.
  */
 
-/**
- * <p>Contains classes for working with APNs keys. Keys are used in token-based authentication. Callers will generally
- * use the {@link com.turo.pushy.apns.auth.ApnsSigningKey} class to provide signing credentials to clients. An
- * {@link com.turo.pushy.apns.auth.ApnsVerificationKey} class is also provided for callers that need to build
- * integration tests using the {@link com.turo.pushy.apns.server.MockApnsServer}.</p>
- *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- */
-package com.turo.pushy.apns.auth;
+package com.turo.pushy.apns.server;
+
+import io.netty.handler.codec.http2.Http2ConnectionHandler;
+
+import javax.net.ssl.SSLSession;
+
+public interface MockApnsServerHandlerFactory {
+    Http2ConnectionHandler buildHandler(SSLSession sslSession);
+}

@@ -20,10 +20,13 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
+import com.turo.pushy.apns.DeliveryPriority;
+import com.turo.pushy.apns.util.ErrorResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -46,7 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
+abstract class AbstractValidatingMockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
     private final boolean emulateInternalErrors;
 
@@ -68,7 +71,7 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractMockApnsServerHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractValidatingMockApnsServerHandler.class);
 
     protected enum ErrorReason {
         BAD_COLLAPSE_ID("BadCollapseId", HttpResponseStatus.BAD_REQUEST),
@@ -149,7 +152,7 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
         }
     }
 
-    public static abstract class AbstractMockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<AbstractMockApnsServerHandler, AbstractMockApnsServerHandlerBuilder> {
+    public static abstract class AbstractMockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<AbstractValidatingMockApnsServerHandler, AbstractMockApnsServerHandlerBuilder> {
 
         private boolean emulateInternalErrors;
 
@@ -179,7 +182,7 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
         }
 
         @Override
-        public AbstractMockApnsServerHandler build() {
+        public AbstractValidatingMockApnsServerHandler build() {
             return super.build();
         }
     }
@@ -238,11 +241,11 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
         }
     }
 
-    protected AbstractMockApnsServerHandler(final Http2ConnectionDecoder decoder,
-                                            final Http2ConnectionEncoder encoder,
-                                            final Http2Settings initialSettings,
-                                            final boolean emulateInternalErrors,
-                                            final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic) {
+    protected AbstractValidatingMockApnsServerHandler(final Http2ConnectionDecoder decoder,
+                                                      final Http2ConnectionEncoder encoder,
+                                                      final Http2Settings initialSettings,
+                                                      final boolean emulateInternalErrors,
+                                                      final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic) {
 
         super(decoder, encoder, initialSettings);
 

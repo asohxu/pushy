@@ -24,6 +24,8 @@ package com.turo.pushy.apns;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
+import com.turo.pushy.apns.util.ErrorResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;

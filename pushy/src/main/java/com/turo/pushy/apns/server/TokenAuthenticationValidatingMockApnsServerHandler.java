@@ -20,8 +20,9 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
+import com.turo.pushy.apns.auth.AuthenticationToken;
 import com.turo.pushy.apns.auth.ApnsVerificationKey;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -38,7 +39,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
-class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
+class TokenAuthenticationValidatingMockApnsServerHandler extends AbstractValidatingMockApnsServerHandler {
 
     private final boolean emulateExpiredFirstToken;
     private boolean rejectedFirstExpiredToken = false;
@@ -51,7 +52,7 @@ class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHan
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
-    private static final Logger log = LoggerFactory.getLogger(TokenAuthenticationApnsClientHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(TokenAuthenticationValidatingMockApnsServerHandler.class);
 
     public static final class TokenAuthenticationMockApnsServerHandlerBuilder extends AbstractMockApnsServerHandlerBuilder {
 
@@ -76,19 +77,19 @@ class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHan
         }
 
         @Override
-        public TokenAuthenticationMockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final TokenAuthenticationMockApnsServerHandler handler = new TokenAuthenticationMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), emulateExpiredFirstToken, verificationKeysByKeyId, topicsByVerificationKey);
+        public TokenAuthenticationValidatingMockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+            final TokenAuthenticationValidatingMockApnsServerHandler handler = new TokenAuthenticationValidatingMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), emulateExpiredFirstToken, verificationKeysByKeyId, topicsByVerificationKey);
             this.frameListener(handler);
             return handler;
         }
 
         @Override
-        public AbstractMockApnsServerHandler build() {
+        public AbstractValidatingMockApnsServerHandler build() {
             return super.build();
         }
     }
 
-    protected TokenAuthenticationMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final boolean emulateExpiredFirstToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
+    protected TokenAuthenticationValidatingMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final boolean emulateExpiredFirstToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
         super(decoder, encoder, initialSettings, emulateInternalErrors, deviceTokenExpirationsByTopic);
 
         this.emulateExpiredFirstToken = emulateExpiredFirstToken;

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
@@ -66,10 +66,9 @@ public class MockApnsServerBuilder {
     private InputStream trustedClientCertificateInputStream;
     private X509Certificate[] trustedClientCertificates;
 
-    private EventLoopGroup eventLoopGroup;
+    private MockApnsServerHandlerFactory handlerFactory;
 
-    private boolean emulateInternalErrors = false;
-    private boolean emulateExpiredFirstToken = false;
+    private EventLoopGroup eventLoopGroup;
 
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
 
@@ -234,35 +233,8 @@ public class MockApnsServerBuilder {
         return this;
     }
 
-    /**
-     * Sets whether the server under construction should respond to all notifications with an internal server error. By
-     * default, the server will respond to notifications normally.
-     *
-     * @param emulateInternalErrors {@code true} if the server should respond to all notifications with an internal
-     * server error or {@code false} otherwise
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public MockApnsServerBuilder setEmulateInternalErrors(final boolean emulateInternalErrors) {
-        this.emulateInternalErrors = emulateInternalErrors;
-        return this;
-    }
-
-    /**
-     * Sets whether the server under construction should reject the first notification received as if its token had
-     * expired.
-     *
-     * @param emulateExpiredFirstToken {@code true} if the server should respond to the first notification as if its
-     * token had expired or {@code false} otherwise
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.10
-     */
-    public MockApnsServerBuilder setEmulateExpiredFirstToken(final boolean emulateExpiredFirstToken) {
-        this.emulateExpiredFirstToken = emulateExpiredFirstToken;
+    public MockApnsServerBuilder setHandlerFactory(final MockApnsServerHandlerFactory handlerFactory) {
+        this.handlerFactory = handlerFactory;
         return this;
     }
 
@@ -278,7 +250,20 @@ public class MockApnsServerBuilder {
     public MockApnsServer build() throws SSLException {
         final SslContext sslContext;
         {
-            final SslProvider sslProvider = SslUtil.getSslProvider();
+            final SslProvider sslProvider;
+
+            if (OpenSsl.isAvailable()) {
+                if (OpenSsl.isAlpnSupported()) {
+                    log.info("Native SSL provider is available and supports ALPN; will use native provider.");
+                    sslProvider = SslProvider.OPENSSL_REFCNT;
+                } else {
+                    log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
+                    sslProvider = SslProvider.JDK;
+                }
+            } else {
+                log.info("Native SSL provider not available; will use JDK SSL provider.");
+                sslProvider = SslProvider.JDK;
+            }
 
             final SslContextBuilder sslContextBuilder;
 
@@ -312,9 +297,7 @@ public class MockApnsServerBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final MockApnsServer server = new MockApnsServer(sslContext, this.eventLoopGroup);
-        server.setEmulateInternalErrors(this.emulateInternalErrors);
-        server.setEmulateExpiredFirstToken(this.emulateExpiredFirstToken);
+        final MockApnsServer server = new MockApnsServer(sslContext, this.handlerFactory, this.eventLoopGroup);
 
         if (sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) sslContext).release();

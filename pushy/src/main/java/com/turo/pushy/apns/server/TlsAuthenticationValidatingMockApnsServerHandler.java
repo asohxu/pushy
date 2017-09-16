@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -30,7 +30,7 @@ import io.netty.util.AsciiString;
 
 import java.util.*;
 
-class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
+class TlsAuthenticationValidatingMockApnsServerHandler extends AbstractValidatingMockApnsServerHandler {
 
     private final Set<String> allowedTopics;
 
@@ -46,19 +46,19 @@ class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandl
         }
 
         @Override
-        public TlsAuthenticationMockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final TlsAuthenticationMockApnsServerHandler handler = new TlsAuthenticationMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), baseTopic);
+        public TlsAuthenticationValidatingMockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+            final TlsAuthenticationValidatingMockApnsServerHandler handler = new TlsAuthenticationValidatingMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), baseTopic);
             this.frameListener(handler);
             return handler;
         }
 
         @Override
-        public AbstractMockApnsServerHandler build() {
+        public AbstractValidatingMockApnsServerHandler build() {
             return super.build();
         }
     }
 
-    protected TlsAuthenticationMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final String baseTopic) {
+    protected TlsAuthenticationValidatingMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final String baseTopic) {
         super(decoder, encoder, initialSettings, emulateInternalErrors, deviceTokenExpirationsByTopic);
 
         Objects.requireNonNull(baseTopic, "Base topic must not be null for mock server handlers using TLS-based authentication.");
