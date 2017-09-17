@@ -124,12 +124,12 @@ class TokenAuthenticationValidatingMockApnsServerHandler extends AbstractValidat
 
         // Have we ever heard of the key in question?
         if (verificationKey == null) {
-            throw new RejectedNotificationException(ErrorReason.INVALID_PROVIDER_TOKEN);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
         try {
             if (!authenticationToken.verifySignature(verificationKey)) {
-                throw new RejectedNotificationException(ErrorReason.INVALID_PROVIDER_TOKEN);
+                throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
             }
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             // This should never happen (here, at least) because we check keys at construction time. If something's
@@ -147,16 +147,16 @@ class TokenAuthenticationValidatingMockApnsServerHandler extends AbstractValidat
         }
 
         if (!this.expectedTeamId.equals(authenticationToken.getTeamId())) {
-            throw new RejectedNotificationException(ErrorReason.INVALID_PROVIDER_TOKEN);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
         if (authenticationToken.getIssuedAt().getTime() + MockApnsServer.AUTHENTICATION_TOKEN_EXPIRATION_MILLIS < System.currentTimeMillis()) {
-            throw new RejectedNotificationException(ErrorReason.EXPIRED_PROVIDER_TOKEN);
+            throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN);
         }
 
         if (this.emulateExpiredFirstToken && !this.rejectedFirstExpiredToken) {
             this.rejectedFirstExpiredToken = true;
-            throw new RejectedNotificationException(ErrorReason.EXPIRED_PROVIDER_TOKEN);
+            throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN);
         }
 
         final String topic;
@@ -168,7 +168,7 @@ class TokenAuthenticationValidatingMockApnsServerHandler extends AbstractValidat
         final Set<String> topicsAllowedForVerificationKey = this.topicsByVerificationKey.get(verificationKey);
 
         if (topicsAllowedForVerificationKey == null || !topicsAllowedForVerificationKey.contains(topic)) {
-            throw new RejectedNotificationException(ErrorReason.INVALID_PROVIDER_TOKEN);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
     }
 }

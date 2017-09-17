@@ -66,7 +66,7 @@ public class MockApnsServerBuilder {
     private InputStream trustedClientCertificateInputStream;
     private X509Certificate[] trustedClientCertificates;
 
-    private MockApnsServerHandlerFactory handlerFactory;
+    private PushNotificationHandlerFactory handlerFactory;
 
     private EventLoopGroup eventLoopGroup;
 
@@ -233,7 +233,7 @@ public class MockApnsServerBuilder {
         return this;
     }
 
-    public MockApnsServerBuilder setHandlerFactory(final MockApnsServerHandlerFactory handlerFactory) {
+    public MockApnsServerBuilder setHandlerFactory(final PushNotificationHandlerFactory handlerFactory) {
         this.handlerFactory = handlerFactory;
         return this;
     }

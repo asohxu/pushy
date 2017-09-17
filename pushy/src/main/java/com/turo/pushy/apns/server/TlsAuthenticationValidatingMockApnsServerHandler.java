@@ -80,7 +80,7 @@ class TlsAuthenticationValidatingMockApnsServerHandler extends AbstractValidatin
         }
 
         if (!this.allowedTopics.contains(topic)) {
-            throw new RejectedNotificationException(ErrorReason.BAD_TOPIC);
+            throw new RejectedNotificationException(RejectionReason.BAD_TOPIC);
         }
     }
 }

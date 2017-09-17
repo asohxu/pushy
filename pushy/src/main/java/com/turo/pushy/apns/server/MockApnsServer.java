@@ -54,13 +54,13 @@ public class MockApnsServer {
     private final ServerBootstrap bootstrap;
     private final boolean shouldShutDownEventLoopGroup;
 
-    private final MockApnsServerHandlerFactory handlerFactory;
+    private final PushNotificationHandlerFactory handlerFactory;
 
     private ChannelGroup allChannels;
 
     public static final long AUTHENTICATION_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
 
-    MockApnsServer(final SslContext sslContext, final MockApnsServerHandlerFactory handlerFactory, final EventLoopGroup eventLoopGroup) {
+    MockApnsServer(final SslContext sslContext, final PushNotificationHandlerFactory handlerFactory, final EventLoopGroup eventLoopGroup) {
         this.sslContext = sslContext;
 
         if (this.sslContext instanceof ReferenceCounted) {
@@ -91,7 +91,17 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            context.pipeline().addLast(MockApnsServer.this.handlerFactory.buildHandler(sslHandler.engine().getSession()));
+                            final PushNotificationHandler pushNotificationHandler =
+                                    MockApnsServer.this.handlerFactory.buildHandler(sslHandler.engine().getSession());
+
+                            // TODO Make initial stream limit configurable
+                            final MockApnsServerHandler serverHandler =
+                                    new MockApnsServerHandler.MockApnsServerHandlerBuilder()
+                                    .pushNotificationHandler(pushNotificationHandler)
+                                    .build();
+
+                            context.pipeline().addLast(serverHandler);
+
                             MockApnsServer.this.allChannels.add(context.channel());
                         } else {
                             throw new IllegalStateException("Unexpected protocol: " + protocol);

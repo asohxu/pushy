@@ -25,7 +25,6 @@ package com.turo.pushy.apns.server;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
-import com.turo.pushy.apns.DeliveryPriority;
 import com.turo.pushy.apns.util.ErrorResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -33,7 +32,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.*;
 import io.netty.util.AsciiString;
@@ -42,67 +40,51 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Date;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-abstract class AbstractValidatingMockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
+class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
-    private final boolean emulateInternalErrors;
+    private final PushNotificationHandler pushNotificationHandler;
 
-    private final Http2Connection.PropertyKey apnsIdPropertyKey;
+    private final Http2Connection.PropertyKey headersPropertyKey;
+    private final Http2Connection.PropertyKey payloadPropertyKey;
 
-    private final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
+    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers().status(HttpResponseStatus.OK.codeAsText());
 
-    private static final String APNS_PATH_PREFIX = "/3/device/";
-    private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
-    private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
-    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
-
     private static final int MAX_CONTENT_LENGTH = 4096;
-    private static final Pattern DEVICE_TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractValidatingMockApnsServerHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(MockApnsServerHandler.class);
 
-    public static abstract class AbstractMockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<AbstractValidatingMockApnsServerHandler, AbstractMockApnsServerHandlerBuilder> {
+    public static class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandler.MockApnsServerHandlerBuilder> {
 
-        private boolean emulateInternalErrors;
+        private PushNotificationHandler pushNotificationHandler;
 
-        private Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
+        public MockApnsServerHandlerBuilder pushNotificationHandler(final PushNotificationHandler pushNotificationHandler) {
+            this.pushNotificationHandler = pushNotificationHandler;
+            return this;
+        }
 
         @Override
-        public AbstractMockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
+        public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
             return super.initialSettings(initialSettings);
         }
 
-        public AbstractMockApnsServerHandlerBuilder emulateInternalErrors(final boolean emulateInternalErrors) {
-            this.emulateInternalErrors = emulateInternalErrors;
-            return this;
-        }
-
-        public boolean emulateInternalErrors() {
-            return this.emulateInternalErrors;
-        }
-
-        public AbstractMockApnsServerHandlerBuilder deviceTokenExpirationsByTopic(final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic) {
-            this.deviceTokenExpirationsByTopic = deviceTokenExpirationsByTopic;
-            return this;
-        }
-
-        public Map<String, Map<String, Date>> deviceTokenExpirationsByTopic() {
-            return this.deviceTokenExpirationsByTopic;
+        @Override
+        public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.pushNotificationHandler);
+            this.frameListener(handler);
+            return handler;
         }
 
         @Override
-        public AbstractValidatingMockApnsServerHandler build() {
+        public MockApnsServerHandler build() {
             return super.build();
         }
     }
@@ -125,26 +107,26 @@ abstract class AbstractValidatingMockApnsServerHandler extends Http2ConnectionHa
         private final RejectionReason errorReason;
         private final Date timestamp;
 
-        public RejectNotificationResponse(final int streamId, final UUID apnsId, final RejectionReason errorReason, final Date timestamp) {
+        RejectNotificationResponse(final int streamId, final UUID apnsId, final RejectionReason errorReason, final Date timestamp) {
             this.streamId = streamId;
             this.apnsId = apnsId;
             this.errorReason = errorReason;
             this.timestamp = timestamp;
         }
 
-        public int getStreamId() {
+        int getStreamId() {
             return this.streamId;
         }
 
-        public UUID getApnsId() {
+        UUID getApnsId() {
             return this.apnsId;
         }
 
-        public RejectionReason getErrorReason() {
+        RejectionReason getErrorReason() {
             return this.errorReason;
         }
 
-        public Date getTimestamp() {
+        Date getTimestamp() {
             return this.timestamp;
         }
     }
@@ -152,47 +134,42 @@ abstract class AbstractValidatingMockApnsServerHandler extends Http2ConnectionHa
     private static class InternalServerErrorResponse {
         private final int streamId;
 
-        public InternalServerErrorResponse(final int streamId) {
+        InternalServerErrorResponse(final int streamId) {
             this.streamId = streamId;
         }
 
-        public int getStreamId() {
+        int getStreamId() {
             return this.streamId;
         }
     }
 
-    protected AbstractValidatingMockApnsServerHandler(final Http2ConnectionDecoder decoder,
-                                                      final Http2ConnectionEncoder encoder,
-                                                      final Http2Settings initialSettings,
-                                                      final boolean emulateInternalErrors,
-                                                      final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic) {
+    MockApnsServerHandler(final Http2ConnectionDecoder decoder,
+                          final Http2ConnectionEncoder encoder,
+                          final Http2Settings initialSettings,
+                          final PushNotificationHandler pushNotificationHandler) {
 
         super(decoder, encoder, initialSettings);
 
-        this.apnsIdPropertyKey = this.connection().newKey();
+        this.headersPropertyKey = this.connection().newKey();
+        this.payloadPropertyKey = this.connection().newKey();
 
-        this.emulateInternalErrors = emulateInternalErrors;
-        this.deviceTokenExpirationsByTopic = deviceTokenExpirationsByTopic;
+        this.pushNotificationHandler = pushNotificationHandler;
     }
 
     @Override
     public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
         final int bytesProcessed = data.readableBytes() + padding;
 
+        final Http2Stream stream = this.connection().stream(streamId);
+
+        if (stream.getProperty(this.payloadPropertyKey) == null) {
+            stream.setProperty(this.payloadPropertyKey, data.alloc().heapBuffer(MAX_CONTENT_LENGTH));
+        }
+
+        ((ByteBuf) stream.getProperty(this.payloadPropertyKey)).writeBytes(data);
+
         if (endOfStream) {
-            final Http2Stream stream = this.connection().stream(streamId);
-
-            // Presumably, we spotted an error earlier and sent a response immediately if the stream is closed on our
-            // side.
-            if (stream.state() == Http2Stream.State.OPEN) {
-                final UUID apnsId = stream.getProperty(this.apnsIdPropertyKey);
-
-                if (data.readableBytes() <= MAX_CONTENT_LENGTH) {
-                    context.channel().writeAndFlush(new AcceptNotificationResponse(streamId));
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, RejectionReason.PAYLOAD_TOO_LARGE, null));
-                }
-            }
+            this.handleEndOfStream(context, stream);
         }
 
         return bytesProcessed;
@@ -200,113 +177,17 @@ abstract class AbstractValidatingMockApnsServerHandler extends Http2ConnectionHa
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        if (this.emulateInternalErrors) {
-            context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
-        } else {
-            final Http2Stream stream = this.connection().stream(streamId);
+        final Http2Stream stream = this.connection().stream(streamId);
+        stream.setProperty(this.headersPropertyKey, headers);
 
-            UUID apnsId = null;
-
-            try {
-                {
-                    final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
-
-                    if (apnsIdSequence != null) {
-                        try {
-                            apnsId = UUID.fromString(apnsIdSequence.toString());
-                        } catch (final IllegalArgumentException e) {
-                            throw new RejectedNotificationException(RejectionReason.BAD_MESSAGE_ID);
-                        }
-                    } else {
-                        // If the client didn't send us a UUID, make one up (for now)
-                        apnsId = UUID.randomUUID();
-                    }
-                }
-
-                if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-                    throw new RejectedNotificationException(RejectionReason.METHOD_NOT_ALLOWED);
-                }
-
-                if (endOfStream) {
-                    throw new RejectedNotificationException(RejectionReason.PAYLOAD_EMPTY);
-                }
-
-                this.verifyHeaders(headers);
-
-                // At this point, we've made it through all of the headers without an exception and know we're waiting
-                // for a data frame. The data frame handler will want the APNs ID in case it needs to send an error
-                // response.
-                stream.setProperty(this.apnsIdPropertyKey, apnsId);
-            } catch (final RejectedNotificationException e) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, e.getRejectionReason(), e.getDeviceTokenExpirationTimestamp()));
-            }
-        }
-    }
-
-    protected void verifyHeaders(final Http2Headers headers) throws RejectedNotificationException {
-        final String topic;
-        {
-            final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
-            topic = (topicSequence != null) ? topicSequence.toString() : null;
-        }
-
-        if (topic == null) {
-            throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
-        }
-
-        {
-            final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
-
-            if (priorityCode != null) {
-                try {
-                    DeliveryPriority.getFromCode(priorityCode);
-                } catch (final IllegalArgumentException e) {
-                    throw new RejectedNotificationException(RejectionReason.BAD_PRIORITY);
-                }
-            }
-        }
-
-        {
-            final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
-
-            if (pathSequence != null) {
-                final String pathString = pathSequence.toString();
-
-                if (pathString.startsWith(APNS_PATH_PREFIX)) {
-                    final String tokenString = pathString.substring(APNS_PATH_PREFIX.length());
-
-                    final Matcher tokenMatcher = DEVICE_TOKEN_PATTERN.matcher(tokenString);
-
-                    if (!tokenMatcher.matches()) {
-                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
-                    }
-
-                    final boolean deviceTokenRegisteredForTopic;
-                    final Date expirationTimestamp;
-                    {
-                        final Map<String, Date> expirationTimestampsByDeviceToken = this.deviceTokenExpirationsByTopic.get(topic);
-
-                        expirationTimestamp = expirationTimestampsByDeviceToken != null ? expirationTimestampsByDeviceToken.get(tokenString) : null;
-                        deviceTokenRegisteredForTopic = expirationTimestampsByDeviceToken != null && expirationTimestampsByDeviceToken.containsKey(tokenString);
-                    }
-
-                    if (expirationTimestamp != null) {
-                        throw new RejectedNotificationException(RejectionReason.UNREGISTERED, expirationTimestamp);
-                    }
-
-                    if (!deviceTokenRegisteredForTopic) {
-                        throw new RejectedNotificationException(RejectionReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
-                    }
-                }
-            } else {
-                throw new RejectedNotificationException(RejectionReason.BAD_PATH);
-            }
+        if (endOfStream) {
+            this.handleEndOfStream(context, stream);
         }
     }
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext ctx, final int streamId, final Http2Headers headers, final int streamDependency,
-            final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+                              final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
 
         this.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
     }
@@ -349,6 +230,25 @@ abstract class AbstractValidatingMockApnsServerHandler extends Http2ConnectionHa
 
     @Override
     public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
+    }
+
+    // TODO Should we do this on a half-closed listener instead?
+    private void handleEndOfStream(final ChannelHandlerContext context, final Http2Stream stream) {
+        final Http2Headers headers = stream.getProperty(this.headersPropertyKey);
+        final ByteBuf payload = stream.getProperty(this.payloadPropertyKey);
+
+        try {
+            this.pushNotificationHandler.handlePushNotification(headers, payload);
+            context.channel().writeAndFlush(new AcceptNotificationResponse(stream.id()));
+        } catch (final RejectedNotificationException e) {
+            context.channel().writeAndFlush(new RejectNotificationResponse(stream.id(), e.getApnsId(), e.getRejectionReason(), e.getDeviceTokenExpirationTimestamp()));
+        } catch (final Exception e) {
+            context.channel().writeAndFlush(new InternalServerErrorResponse(stream.id()));
+        } finally {
+            if (stream.getProperty(this.payloadPropertyKey) != null) {
+                ((ByteBuf) stream.getProperty(this.payloadPropertyKey)).release();
+            }
+        }
     }
 
     @Override

@@ -22,10 +22,9 @@
 
 package com.turo.pushy.apns.server;
 
-import io.netty.handler.codec.http2.Http2ConnectionHandler;
+import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.http2.Http2Headers;
 
-import javax.net.ssl.SSLSession;
-
-public interface MockApnsServerHandlerFactory {
-    Http2ConnectionHandler buildHandler(SSLSession sslSession);
+public interface PushNotificationHandler {
+    void handlePushNotification(Http2Headers headers, ByteBuf payload) throws RejectedNotificationException;
 }
